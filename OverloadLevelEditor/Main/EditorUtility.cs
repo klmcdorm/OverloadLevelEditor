@@ -19,6 +19,7 @@ using OpenTK;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 // EDITOR - Utility functions
 // Mostly used for consolidating or redirecting editor commands to the specific steps
@@ -1187,53 +1188,67 @@ namespace OverloadLevelEditor
 			}
 		}
 
-		public bool ExportLevel(string inputLevelPath, string outputPath, OverloadLevelExport.LevelType exportLevelType)
+		public Task<bool> ExportLevel(string inputLevelPath, string outputPath, OverloadLevelExport.LevelType exportLevelType)
 		{
-			try {
-				try {
-					UnityEngine.Debug.LogCallback = (int level, string msg) => {
-						string tag = "INFO";
-						switch (level) {
-							case 1:
-								tag = "WARN";
-								break;
-							case 2:
-								tag = "ERROR";
-								break;
+			return Task.Factory.StartNew(() =>
+			{
+				UnityEngine.Debug.LogCallback = (int level, string msg) => {
+					string tag = "INFO";
+					switch (level)
+					{
+						case 1:
+							tag = "WARN";
+							break;
+						case 2:
+							tag = "ERROR";
+							break;
+					}
+					AddOutputText(string.Format("{0}: {1}", tag, msg));
+				};
+
+				using (var serializer = new OverloadLevelConvertSerializer(outputPath, true))
+				{
+					// Serializer header
+					OverloadLevelConverter.WriteSerializationLevelHeader(serializer, (uint)exportLevelType);
+
+					using (OverloadLevelExport.SceneBroker sceneBroker = new OverloadLevelExport.SceneBroker(serializer, exportLevelType))
+					{
+						serializer.Context = sceneBroker;
+
+						OverloadLevelExport.SceneBroker.ActiveSceneBrokerInstance = sceneBroker;
+						try
+						{
+							OverloadLevelConverter.ConvertLevel(inputLevelPath, Path.GetFileNameWithoutExtension(outputPath), this.m_filepath_root, sceneBroker);
+
+							// Last packet is the 'Done' packet
+							var doneCmd = new OverloadLevelExport.CmdDone();
+							doneCmd.Serialize(serializer);
 						}
-						AddOutputText(string.Format("{0}: {1}", tag, msg));
-					};
-
-					using (var serializer = new OverloadLevelConvertSerializer(outputPath, true)) {
-						// Serializer header
-						OverloadLevelConverter.WriteSerializationLevelHeader(serializer, (uint)exportLevelType);
-
-						using (OverloadLevelExport.SceneBroker sceneBroker = new OverloadLevelExport.SceneBroker(serializer, exportLevelType)) {
-							serializer.Context = sceneBroker;
-
-							OverloadLevelExport.SceneBroker.ActiveSceneBrokerInstance = sceneBroker;
-							try {
-								OverloadLevelConverter.ConvertLevel(inputLevelPath, Path.GetFileNameWithoutExtension(outputPath), this.m_filepath_root, sceneBroker);
-
-								// Last packet is the 'Done' packet
-								var doneCmd = new OverloadLevelExport.CmdDone();
-								doneCmd.Serialize(serializer);
-							} finally {
-								serializer.Context = null;
-								OverloadLevelExport.SceneBroker.ActiveSceneBrokerInstance = null;
-							}
+						finally
+						{
+							serializer.Context = null;
+							OverloadLevelExport.SceneBroker.ActiveSceneBrokerInstance = null;
 						}
 					}
-				} finally {
-					UnityEngine.Debug.LogCallback = null;
-					GC.Collect();
 				}
+			}).ContinueWith(t =>
+			{
+				UnityEngine.Debug.LogCallback = null;
+				GC.Collect();
 
-				return true;
-			} catch (Exception ex) {
-				MessageBox.Show(string.Format("Failed to export level: {0}", ex.Message));
-				return false;
-			}
+				if (t.IsFaulted)
+				{
+					foreach(var ex in t.Exception.InnerExceptions)
+					{
+						MessageBox.Show(string.Format("Failed to export level: {0}", ex.Message));
+					}
+					return false;
+				} 
+				else
+				{
+					return true;
+				}
+			});
 		}
 
 		public void ExportSimpleMission(string output_path, string output_name, string level_name)

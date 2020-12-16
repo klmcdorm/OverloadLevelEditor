@@ -11,6 +11,7 @@ AND AGREES TO THE TERMS HEREIN AND ACCEPTS THE SAME BY USE OF THIS FILE.
 COPYRIGHT 2015-2020 REVIVAL PRODUCTIONS, LLC.  ALL RIGHTS RESERVED.
 */
 
+using System.Threading.Tasks;
 using UnityEngine;
 
 public static class Segment2SegmentVis
@@ -169,19 +170,21 @@ public static class Segment2SegmentVis
 			}
 		}
 
+		// Physics scene initialization is not thread-safe so do it ahead of time
+		OverloadLevelExport.SceneBroker.ActiveSceneBrokerInstance.GetPhysicsScene();
+
 		// Initialize direct visibility
-		for (int i = 0; i < num_segs; i++) {
+		Parallel.For(0, num_segs * num_segs, (x) =>
+		{
+			int i = x / num_segs;
+			int j = x % num_segs;
+			if (j >= i) return;
 
-			// Every segment can see itself
-			segmentToSegmentVisibility[(i * num_segs) + i] = 1;
-
-			for (int j = 0; j < i; j++) {
-				int res = TestSegmentToSegmentVisibility(levelData, i, j) ? 1 : 0;
-				segmentToSegmentVisibility[(i * num_segs) + j] = res;
-				segmentToSegmentVisibility[(j * num_segs) + i] = res;
-			}
-		}
-
+			int res = TestSegmentToSegmentVisibility(levelData, i, j) ? 1 : 0;
+			segmentToSegmentVisibility[(i * num_segs) + j] = res;
+			segmentToSegmentVisibility[(j * num_segs) + i] = res;
+		});
+		
 		float squareSecondaryVisibilityDistance = secondaryVisibilityDistance * secondaryVisibilityDistance;
 
 		// Mark segments indirectly visible segments. A segment is indirectly visible if it is within
