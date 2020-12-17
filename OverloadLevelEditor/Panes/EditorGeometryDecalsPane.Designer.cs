@@ -422,7 +422,6 @@ namespace OverloadLevelEditor
 			this.label_decal_mirror.BackColor = System.Drawing.SystemColors.ControlDark;
 			this.label_decal_mirror.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
 			this.label_decal_mirror.Enabled = false;
-			this.label_decal_mirror.ForeColor = System.Drawing.SystemColors.AppWorkspace;
 			this.label_decal_mirror.Location = new System.Drawing.Point(2, 88);
 			this.label_decal_mirror.Margin = new System.Windows.Forms.Padding(1);
 			this.label_decal_mirror.Name = "label_decal_mirror";
