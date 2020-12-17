@@ -165,7 +165,10 @@ namespace OverloadLevelExport
 				}
 
 				uint layerMask = 1U << layer;
-				editor_register_trianglemesh((uint)meshVerts.Length, verts, (uint)indices.Length / 3, indices, layerMask);
+				if (meshVerts.Length > 0 && indices.Length >= 3)
+				{
+					editor_register_trianglemesh((uint)meshVerts.Length, verts, (uint)indices.Length / 3, indices, layerMask);
+				}
 			}
 
 			public uint AddMultiCollisionMesh(int layer, UnityEngine.Mesh[] meshes)
