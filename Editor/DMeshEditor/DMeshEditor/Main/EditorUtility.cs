@@ -487,12 +487,40 @@ namespace OverloadLevelEditor
 			RefreshGeometry();
 		}
 
+		public void BisectPolygon()
+		{
+			List<DPoly> markedPolys = m_dmesh.GetMarkedPolys();
+			if (markedPolys.Count > 0)
+			{
+				Clipping.ClipPlane plane = null;
+				if (m_dmesh.num_marked_verts == 3)
+				{
+					var markedVerts = m_dmesh.GetMarkedVerts(false).ConvertAll(vert => m_dmesh.vertex[vert]);
+					if (Clipping.Clipper.CheckColinear(markedVerts[0], markedVerts[1], markedVerts[2]) == -1)
+					{
+						plane = Clipping.ClipPlane.CreateFrom3Points(markedVerts[0], markedVerts[1], markedVerts[2]);
+					}
+				}
+
+				if (plane != null)
+				{
+					SaveStateForUndo("Bisect polygon");
+					foreach (var poly in markedPolys)
+					{
+						m_dmesh.SplitPolygonByPlane(poly, plane);
+					}
+					RefreshGeometry();
+				}
+				else
+				{
+					AddOutputText("Bisect Polygon requires three non-collinear marked vertices");
+				}
+			}
+		}
+
 		public void UpdateTextureLabels()
 		{
-			/*Side s = m_level.GetSelectedSide();
-			if (s != null) {
-				label_texture_name.Text = s.tex_name;
-			}*/
+			label_texture_name.Text = m_dmesh.GetSelectedPolyTexture();
 		}
 
 		public void UpdateCountLabels()
@@ -987,6 +1015,31 @@ namespace OverloadLevelEditor
 			}
 
 			InitColors();
+		}
+
+		public bool ImportOBJ(DMesh dm, string path_to_file)
+		{
+			dm.Init(this);
+			try {
+				if (!OverloadLevelEditor.ImportOBJ.ImportOBJToDMesh(dm, path_to_file, false, this, tm_decal))
+                    return false;
+
+				dm.UpdateGLTextures(tm_decal);
+
+				dm.dirty = false;
+
+				if (!dm.WasConverted()) {
+					m_dmesh.ConvertTrisToPolysRaw();
+					dm.dirty = true;
+				}
+				UpdateOptionLabels();
+
+				return true;
+			}
+			catch (Exception ex) {
+				Utility.DebugPopup("Failed to load OBJ: " + ex.Message, "Error");
+				return false;
+			}
 		}
 	}
 }
