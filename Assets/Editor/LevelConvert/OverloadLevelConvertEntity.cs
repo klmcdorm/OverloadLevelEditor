@@ -299,6 +299,13 @@ public partial class OverloadLevelConverter
 								portal_index = -1;
 							}
 
+							// HACK: reduced door trigger size if this unused property is set
+							// (helpful in layouts with small rooms or shallow doorways)
+							if (p_door.RobotAccess)
+                            {
+								entity_instance.GetComponentInChildren("DoorAnimating").SetProperty<float>("m_player_trigger_depth", 4f);
+							}
+
 							e_door.SetProperty("LockType", p_door.m_door_lock);
 							e_door.SetProperty("Portal", portal_index);
 							e_door.SetProperty("NoChunk", p_door.m_no_chunk);
